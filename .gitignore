@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Streamlit cache
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Datos grandes / privados (CSV de trabajo quedan incluidos en el repo)
+# Descomenta si prefieres excluirlos:
+# data/raw/*.csv
+# data/raw/*.xlsx
+
+# Archivos vacíos o temporales
+data/raw/Serie Ipp oferta interna.xlsx
+*.tmp
+*.log

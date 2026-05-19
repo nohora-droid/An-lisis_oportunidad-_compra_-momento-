@@ -1,0 +1,34 @@
+# ============================================================
+# Configuración de la herramienta de compra de energía — BIA
+# ============================================================
+
+app:
+  titulo: "BIA Energy — Inteligencia de Compra"
+  icono: "⚡"
+  version: "1.0.0"
+
+datos:
+  # Archivos locales (data/raw/)
+  pb_historica:       "pb_historica_diaria.csv"
+  ofertas_agente:     "ofertas_por_agente_detalle.csv"
+  master_con_pb:      "master_con_pb.csv"
+
+  # IDs en Google Drive (para sincronización)
+  drive:
+    audiencias_master:  "1u3ZlRzT85UDKM1v132dD87mjw1MnjoXl"
+    solicitado_master:  "1x7wxkY6iE7W_TKp92_jwtklz6gYl1Ec5"
+    ipp_serie:          "1l5tVQHOPocui6ZTbUXIgfl1_gWiJLnqD"
+
+alertas:
+  # Umbrales para alertas de PB
+  pb_baja_percentil: 25         # PB en percentil < 25 → señal de compra fuerte
+  pb_media_percentil: 50        # PB en percentil < 50 → señal moderada
+  ventana_analisis_dias: 90     # Ventana de comparación histórica
+
+  # Alertas de vendedores libres (no adjudicados)
+  horizonte_seguimiento_dias: 60  # Seguir vendedores no adj hasta N días después
+
+analisis:
+  mes_indexacion_default: "2025-06"  # Mes base para indexar precios IPP
+  ventanas_pb: [30, 60, 90]
+  min_ofertas_agente: 3              # Mínimo de ofertas para incluir agente en análisis
