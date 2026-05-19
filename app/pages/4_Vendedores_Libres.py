@@ -29,12 +29,24 @@ Agentes que **ofertaron pero no fueron adjudicados** en procesos recientes.
 """)
 st.markdown("---")
 
+# ── Fecha de corte de los datos ──────────────────────────────
+fecha_corte_datos = pd.to_datetime(master["fecha_audiencia"]).max()
+fecha_mas_antigua = pd.to_datetime(master["fecha_audiencia"]).min()
+
+# Banner de contexto temporal — siempre visible
+st.info(
+    f"📅 **Corte de datos:** el archivo más reciente llega hasta el "
+    f"**{fecha_corte_datos.strftime('%d de %B de %Y')}**. "
+    f"Los 'últimos N días' se cuentan hacia atrás desde esa fecha, no desde hoy. "
+    f"(Histórico disponible: {fecha_mas_antigua.strftime('%b %Y')} → {fecha_corte_datos.strftime('%b %Y')})"
+)
+
 # ── Configuración ────────────────────────────────────────────
 col_c1, col_c2, col_c3 = st.columns(3)
 with col_c1:
     dias_ventana = st.number_input(
         "Ventana de seguimiento (días)", min_value=30, max_value=365, value=90,
-        help="Buscar vendedores no adj. en los últimos N días."
+        help="Buscar vendedores no adj. en los últimos N días contados desde el corte del archivo."
     )
 with col_c2:
     max_precio = st.number_input(
@@ -48,11 +60,25 @@ with col_c3:
         default=ofertas["tipo_curva"].dropna().unique().tolist() if "tipo_curva" in ofertas.columns else ["PLANO"],
     )
 
+# Mostrar rango exacto que se está consultando
+fecha_desde_ventana = fecha_corte_datos - pd.Timedelta(days=int(dias_ventana))
+st.caption(
+    f"🔍 Buscando audiencias entre **{fecha_desde_ventana.strftime('%d/%m/%Y')}** "
+    f"y **{fecha_corte_datos.strftime('%d/%m/%Y')}** "
+    f"({int(dias_ventana)} días · año{'s' if fecha_desde_ventana.year != fecha_corte_datos.year else ''}: "
+    f"{'%d–%d' % (fecha_desde_ventana.year, fecha_corte_datos.year) if fecha_desde_ventana.year != fecha_corte_datos.year else str(fecha_corte_datos.year)})"
+)
+
 # ── Tabla de vendedores libres ───────────────────────────────
 libres = alertas_vendedores_libres(ofertas, master, dias_ventana=int(dias_ventana))
 
 if len(libres) == 0:
-    st.info(f"No se encontraron agentes no adjudicados en los últimos {dias_ventana} días.")
+    st.warning(
+        f"No se encontraron agentes no adjudicados entre "
+        f"**{fecha_desde_ventana.strftime('%d/%m/%Y')}** y "
+        f"**{fecha_corte_datos.strftime('%d/%m/%Y')}**. "
+        f"Prueba ampliar la ventana de seguimiento."
+    )
 else:
     # Aplicar filtro de precio
     libres_filt = libres[libres["precio_prom"] <= max_precio]
@@ -128,6 +154,11 @@ st.markdown("---")
 
 # ── Detalle de un proceso reciente ───────────────────────────
 st.markdown("### 🔍 Detalle de un proceso reciente")
+st.caption(
+    f"Mostrando procesos entre **{fecha_desde_ventana.strftime('%d/%m/%Y')}** "
+    f"y **{fecha_corte_datos.strftime('%d/%m/%Y')}** — "
+    f"{int(dias_ventana)} días hacia atrás desde el corte de datos"
+)
 
 fecha_corte = master["fecha_audiencia"].max() - pd.Timedelta(days=int(dias_ventana))
 procesos_rec = master[master["fecha_audiencia"] >= fecha_corte].sort_values(
@@ -138,7 +169,10 @@ if len(procesos_rec) > 0:
     proceso_sel = st.selectbox(
         "Selecciona un proceso",
         options=procesos_rec["audiencia_id"].tolist(),
-        format_func=lambda x: f"{x} — {procesos_rec[procesos_rec['audiencia_id']==x]['fecha_audiencia'].dt.strftime('%Y-%m-%d').values[0]}"
+        format_func=lambda x: (
+            f"{x} — "
+            f"{procesos_rec[procesos_rec['audiencia_id']==x]['fecha_audiencia'].dt.strftime('%d/%m/%Y').values[0]}"
+        )
     )
 
     # Ofertas de ese proceso
