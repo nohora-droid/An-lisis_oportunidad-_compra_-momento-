@@ -34,8 +34,94 @@ ipp_valor        = st.session_state.get("ipp_valor_global")
 audiencias_sel   = st.session_state.get("audiencias_sel",
                        ofertas_full["audiencia_id"].unique().tolist())
 
-# Aplicar filtro de audiencias
-ofertas_base = ofertas_full[ofertas_full["audiencia_id"].isin(audiencias_sel)].copy()
+# ── Header ───────────────────────────────────────────────────
+st.title("📆 Precios por Año de Vigencia")
+
+ipp_label = (f"Indexado a **{mes_idx}** · IPP {ipp_valor:.2f}"
+             if mes_idx and ipp_valor else "Sin indexar")
+st.caption(f"{ipp_label} · _(Cambia el mes de indexación en el sidebar)_")
+st.markdown("---")
+
+# ── Filtro de período de audiencias ─────────────────────────
+OPCIONES_PERIODO = {
+    "Todas las audiencias":  None,
+    "Último mes":            1,
+    "Últimos 3 meses":       3,
+    "Últimos 6 meses":       6,
+    "Último año":            12,
+    "Últimos 2 años":        24,
+    "Últimos 3 años":        36,
+    "Rango personalizado":  "custom",
+}
+
+col_p1, col_p2 = st.columns([2, 3])
+with col_p1:
+    periodo_sel = st.selectbox(
+        "📅 Período de audiencias a incluir",
+        options=list(OPCIONES_PERIODO.keys()),
+        index=0,
+        help="Filtra las audiencias por fecha en que se realizaron, "
+             "independientemente del año de vigencia del contrato.",
+    )
+
+fecha_max_aud = pd.to_datetime(ofertas_full["fecha_audiencia"]).max()
+
+if OPCIONES_PERIODO[periodo_sel] is None:
+    fecha_desde = None
+    fecha_hasta = None
+elif OPCIONES_PERIODO[periodo_sel] == "custom":
+    with col_p2:
+        rango_custom = st.date_input(
+            "Rango de fechas",
+            value=(
+                (fecha_max_aud - pd.DateOffset(months=6)).date(),
+                fecha_max_aud.date(),
+            ),
+            key="rango_custom_vigencia",
+        )
+    if isinstance(rango_custom, (list, tuple)) and len(rango_custom) == 2:
+        fecha_desde = pd.Timestamp(rango_custom[0])
+        fecha_hasta = pd.Timestamp(rango_custom[1])
+    else:
+        fecha_desde = fecha_hasta = None
+else:
+    meses_atras = OPCIONES_PERIODO[periodo_sel]
+    fecha_hasta = fecha_max_aud
+    fecha_desde = fecha_max_aud - pd.DateOffset(months=meses_atras)
+
+# Aplicar filtro de período + filtro de audiencias del sidebar
+mask_aud = ofertas_full["audiencia_id"].isin(audiencias_sel)
+if fecha_desde is not None:
+    fechas_aud = pd.to_datetime(ofertas_full["fecha_audiencia"])
+    mask_periodo = (fechas_aud >= fecha_desde) & (fechas_aud <= fecha_hasta)
+    mask_final = mask_aud & mask_periodo
+else:
+    mask_final = mask_aud
+
+ofertas_base = ofertas_full[mask_final].copy()
+
+# Mostrar info de qué quedó
+n_aud_filt = ofertas_base["audiencia_id"].nunique()
+n_aud_total = ofertas_full["audiencia_id"].nunique()
+with col_p2:
+    if OPCIONES_PERIODO[periodo_sel] != "custom":
+        fecha_info = (
+            f"desde **{fecha_desde.strftime('%d/%m/%Y')}** hasta **{fecha_hasta.strftime('%d/%m/%Y')}**"
+            if fecha_desde else "todo el histórico"
+        )
+        if n_aud_filt == 0:
+            st.error(f"⚠️ Sin audiencias en ese período.")
+        else:
+            st.success(
+                f"✅ **{n_aud_filt}** audiencias ({fecha_info})  \n"
+                f"{len(ofertas_base):,} ofertas incluidas"
+            )
+
+if len(ofertas_base) == 0:
+    st.warning("No hay datos para el período seleccionado. Amplía el rango.")
+    st.stop()
+
+st.markdown("---")
 
 # ── Indexar precios ──────────────────────────────────────────
 tiene_ipp = any(c.lower() == "ipp" for c in ofertas_base.columns)
@@ -47,15 +133,6 @@ else:
     ofertas_idx = ofertas_base.copy()
     col_precio  = "precio_oferta"
     sufijo_ind  = ""
-
-# ── Header ───────────────────────────────────────────────────
-st.title("📆 Precios por Año de Vigencia")
-
-ipp_label = (f"Indexado a **{mes_idx}** · IPP {ipp_valor:.2f}"
-             if mes_idx and ipp_valor else "Sin indexar")
-st.caption(f"{ipp_label} · {len(audiencias_sel)} audiencias · "
-           f"_(Cambia mes y audiencias en el sidebar)_")
-st.markdown("---")
 
 # ── Expandir ofertas mes a mes por vigencia ──────────────────
 filas = []
