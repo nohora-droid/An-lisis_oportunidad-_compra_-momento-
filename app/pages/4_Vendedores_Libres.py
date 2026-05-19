@@ -34,12 +34,25 @@ fecha_corte_datos = pd.to_datetime(master["fecha_audiencia"]).max()
 fecha_mas_antigua = pd.to_datetime(master["fecha_audiencia"]).min()
 
 # Banner de contexto temporal — siempre visible
-st.info(
-    f"📅 **Corte de datos:** el archivo más reciente llega hasta el "
-    f"**{fecha_corte_datos.strftime('%d de %B de %Y')}**. "
-    f"Los 'últimos N días' se cuentan hacia atrás desde esa fecha, no desde hoy. "
-    f"(Histórico disponible: {fecha_mas_antigua.strftime('%b %Y')} → {fecha_corte_datos.strftime('%b %Y')})"
-)
+# Gap entre corte de ofertas y corte de master
+fecha_corte_ofertas = pd.to_datetime(ofertas["fecha_audiencia"]).max()
+dias_gap = (fecha_corte_datos - fecha_corte_ofertas).days
+
+col_banner1, col_banner2 = st.columns([3, 2])
+with col_banner1:
+    st.info(
+        f"📅 **Corte de datos de ofertas:** **{fecha_corte_ofertas.strftime('%d de %B de %Y')}** · "
+        f"Histórico: {fecha_mas_antigua.strftime('%b %Y')} → {fecha_corte_ofertas.strftime('%b %Y')}\n\n"
+        f"Los 'últimos N días' se cuentan desde esa fecha, no desde hoy."
+    )
+with col_banner2:
+    if dias_gap > 30:
+        st.warning(
+            f"⚠️ **{dias_gap} días sin actualizar**\n\n"
+            f"Hay audiencias realizadas entre **{fecha_corte_ofertas.strftime('%d/%m/%Y')}** "
+            f"y **{fecha_corte_datos.strftime('%d/%m/%Y')}** que no están en el archivo de ofertas. "
+            f"Para verlas, actualiza `ofertas_por_agente_detalle.csv` con los datos de SICEP."
+        )
 
 # ── Configuración ────────────────────────────────────────────
 col_c1, col_c2, col_c3 = st.columns(3)
@@ -97,20 +110,30 @@ else:
 
     # Tabla principal
     df_display = libres_filt.reset_index().rename(columns={
-        "agente_nombre": "Agente",
-        "veces_no_adj": "Veces no adj.",
-        "procesos": "Últimos procesos",
-        "precio_prom": "Precio prom.",
-        "precio_min": "Precio mín.",
-        "ultima_audiencia": "Última audiencia",
-        "horizonte_dias": "Horizonte días",
+        "agente_nombre":   "Agente",
+        "veces_no_adj":    "Ofertas disponibles",
+        "tipo":            "Situación",
+        "años_vigencia":   "Años vigencia",
+        "procesos":        "Últimos procesos",
+        "precio_prom":     "Precio prom. $/kWh",
+        "precio_min":      "Precio mín. $/kWh",
+        "ultima_audiencia":"Última audiencia",
+        "horizonte_dias":  "Horizonte días",
     })
-    if "ultima_audiencia" in df_display.columns:
+    if "Última audiencia" in df_display.columns:
         df_display["Última audiencia"] = pd.to_datetime(
-            df_display["Última audiencia"]).dt.strftime("%Y-%m-%d")
+            df_display["Última audiencia"]).dt.strftime("%d/%m/%Y")
+
+    cols_show = [c for c in [
+        "Agente", "Situación", "Años vigencia", "Ofertas disponibles",
+        "Precio prom. $/kWh", "Precio mín. $/kWh",
+        "Últimos procesos", "Última audiencia", "Horizonte días"
+    ] if c in df_display.columns]
 
     st.dataframe(
-        df_display.style.background_gradient(subset=["Precio prom."], cmap="RdYlGn_r"),
+        df_display[cols_show].style.background_gradient(
+            subset=["Precio prom. $/kWh"], cmap="RdYlGn_r"
+        ),
         use_container_width=True,
         hide_index=True,
     )

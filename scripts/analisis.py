@@ -197,35 +197,63 @@ def alertas_vendedores_libres(ofertas: pd.DataFrame,
                                master: pd.DataFrame,
                                dias_ventana: int = 60) -> pd.DataFrame:
     """
-    Identifica agentes que ofertaron pero NO fueron adjudicados en procesos
-    recientes. Son candidatos a contactar directamente.
+    Identifica agentes con energía disponible en procesos recientes:
+      1. No adjudicados al 0% (ofertaron y no ganaron nada)
+      2. Adjudicados PARCIALMENTE (< 100%) → tienen remanente disponible
 
     Lógica:
-    - Toma procesos de los últimos `dias_ventana` días
-    - Para cada proceso con adjudicación parcial o nula: lista los no-adj
-    - Agrega información de precio ofertado y horizonte
+    - Toma procesos de los últimos `dias_ventana` días (desde el último dato)
+    - Incluye agentes con pct_adjudicado < 100
+    - Agrega precio, horizonte y años de vigencia ofertados
     """
-    fecha_corte = master["fecha_audiencia"].max() - pd.Timedelta(days=dias_ventana)
-    procesos_rec = master[master["fecha_audiencia"] >= fecha_corte]["audiencia_id"].tolist()
+    # Usar el último dato de OFERTAS como referencia (no del master)
+    # para evitar que la ventana caiga en un período sin datos de ofertas
+    fecha_ref = ofertas["fecha_audiencia"].max()
+    fecha_desde = fecha_ref - pd.Timedelta(days=dias_ventana)
 
-    no_adj = ofertas[
-        (ofertas["audiencia_id"].isin(procesos_rec)) &
-        (ofertas["adjudicada"] == False)
-    ].copy()
+    procesos_rec = master[master["fecha_audiencia"] >= fecha_desde]["audiencia_id"].tolist()
 
-    if len(no_adj) == 0:
+    # Incluir no adjudicados Y parcialmente adjudicados
+    of_ventana = ofertas[ofertas["audiencia_id"].isin(procesos_rec)].copy()
+
+    pct_col = "pct_adjudicado"
+    if pct_col in of_ventana.columns:
+        of_ventana[pct_col] = pd.to_numeric(of_ventana[pct_col], errors="coerce").fillna(0)
+        # Disponible = no adj (0%) + parcial (0% < x < 100%)
+        disponibles = of_ventana[of_ventana[pct_col] < 100].copy()
+        disponibles["tipo_disponibilidad"] = disponibles[pct_col].apply(
+            lambda x: "Sin adjudicar" if x == 0 else f"Parcial ({x:.0f}% adj.)"
+        )
+    else:
+        disponibles = of_ventana[of_ventana["adjudicada"] == False].copy()
+        disponibles["tipo_disponibilidad"] = "Sin adjudicar"
+
+    if len(disponibles) == 0:
         return pd.DataFrame()
 
-    resumen = no_adj.groupby("agente_nombre").agg(
-        veces_no_adj    = ("audiencia_id", "count"),
-        procesos        = ("audiencia_id", lambda x: ", ".join(sorted(x.unique())[:3])),
-        precio_prom     = ("precio_oferta", "mean"),
-        precio_min      = ("precio_oferta", "min"),
-        ultima_audiencia = ("fecha_audiencia", "max"),
-        horizonte_dias  = ("horizonte_dias", "mean"),
-    ).round(2).sort_values("ultima_audiencia", ascending=False)
+    # Años de vigencia ofertados
+    def rango_vigencia(group):
+        vi = pd.to_datetime(group["vigencia_inicio"], errors="coerce").dt.year.dropna()
+        vf = pd.to_datetime(group["vigencia_fin"],   errors="coerce").dt.year.dropna()
+        if len(vi) == 0:
+            return "N/D"
+        min_a, max_a = int(vi.min()), int(vf.max()) if len(vf) > 0 else int(vi.max())
+        return str(min_a) if min_a == max_a else f"{min_a}–{max_a}"
 
-    return resumen
+    resumen = disponibles.groupby("agente_nombre").apply(
+        lambda g: pd.Series({
+            "veces_no_adj":      len(g),
+            "procesos":          ", ".join(sorted(g["audiencia_id"].unique())[:3]),
+            "precio_prom":       round(g["precio_oferta"].mean(), 2),
+            "precio_min":        round(g["precio_oferta"].min(), 2),
+            "ultima_audiencia":  g["fecha_audiencia"].max(),
+            "horizonte_dias":    round(g["horizonte_dias"].mean(), 0) if "horizonte_dias" in g else None,
+            "años_vigencia":     rango_vigencia(g),
+            "tipo":              g["tipo_disponibilidad"].mode()[0] if len(g) > 0 else "",
+        })
+    ).reset_index().set_index("agente_nombre")
+
+    return resumen.sort_values("ultima_audiencia", ascending=False)
 
 
 def proyectar_mejor_momento(master: pd.DataFrame,
