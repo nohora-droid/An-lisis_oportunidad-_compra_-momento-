@@ -42,11 +42,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Carga de datos (cacheada) ────────────────────────────────
-@st.cache_data(ttl=3600, show_spinner="Cargando datos de mercado...")
-def _cargar():
+@st.cache_data(ttl=3600, show_spinner="Cargando datos de mercado...", hash_funcs={})
+def _cargar(version: int = 2):          # incrementa 'version' para forzar recarga
     return cargar_todo()
 
-datos = _cargar()
+datos = _cargar(version=2)
 pb          = datos["pb"]
 ofertas     = datos["ofertas"]
 master      = datos["master"]

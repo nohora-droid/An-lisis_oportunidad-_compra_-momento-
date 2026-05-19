@@ -20,9 +20,15 @@ if "pb" not in st.session_state:
     st.warning("⚠️ Regresa a la página principal para cargar los datos.")
     st.stop()
 
-pb         = st.session_state["pb"]
+pb     = st.session_state["pb"]
+master = st.session_state["master"]
+
+# Cargar pronóstico: primero desde session_state, si vacío carga directo del CSV
 pronostico = st.session_state.get("pronostico", pd.DataFrame())
-master     = st.session_state["master"]
+if len(pronostico) == 0:
+    from scripts.data_loader import cargar_pronostico
+    pronostico = cargar_pronostico()
+    st.session_state["pronostico"] = pronostico  # guardar para próximas páginas
 
 st.title("🔮 Proyección del Precio de Bolsa")
 st.markdown("""
