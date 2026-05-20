@@ -172,7 +172,7 @@ if len(pronostico) > 0:
             )
         # Línea vertical en corte histórico / pronóstico
         fig.add_vline(
-            x=ultimo_hist, line_dash="dot", line_color="#94a3b8", line_width=1.5,
+            x=str(ultimo_hist), line_dash="dot", line_color="#94a3b8", line_width=1.5,
             annotation_text="Hoy", annotation_position="top right",
         )
 

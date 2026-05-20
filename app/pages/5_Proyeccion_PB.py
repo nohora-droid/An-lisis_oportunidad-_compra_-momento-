@@ -125,9 +125,9 @@ if len(pron) > 0:
 
     # Línea divisoria histórico / pronóstico
     fig.add_vline(
-        x=ultimo_hist,
+        x=str(ultimo_hist),
         line_dash="dot", line_color="#94a3b8", line_width=1.5,
-        annotation_text=f"Inicio pronóstico ({ultimo_hist.date()})",
+        annotation_text=f"Inicio pronostico ({ultimo_hist.date()})",
         annotation_position="top left",
         annotation_font_size=11,
     )

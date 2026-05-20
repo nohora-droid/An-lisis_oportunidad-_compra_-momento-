@@ -288,7 +288,7 @@ if vista == "Anual":
                 f"Precio adj. ($/kWh{sufijo_ind})":   "${:,.2f}",
                 "Diferencia": "{:+.2f}",
             })
-            .applymap(color_dif, subset=["Diferencia"]),
+            .map(color_dif, subset=["Diferencia"]),
             use_container_width=True,
             hide_index=True,
         )
@@ -370,7 +370,7 @@ else:
             "Diferencia (adj - oferta)": lambda v: f"{v:+.2f}" if pd.notna(v) else "",
         })
         .apply(estilo_fila, axis=1)
-        .applymap(color_dif2, subset=["Diferencia (adj - oferta)"]),
+        .map(color_dif2, subset=["Diferencia (adj - oferta)"]),
         use_container_width=True,
         hide_index=True,
         height=600,

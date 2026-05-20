@@ -125,7 +125,7 @@ st.dataframe(
         "vigencia_años_prom": "Vigencia años",
         "primera_oferta": "Primera oferta",
         "ultima_oferta": "Última oferta",
-    }).style.applymap(color_adj, subset=["Tasa adj. %"]),
+    }).style.map(color_adj, subset=["Tasa adj. %"]),
     use_container_width=True,
     height=400,
 )
@@ -190,7 +190,7 @@ with tab_a:
                 opacity=0.8,
             )
             fig_hor.add_vline(
-                x=hor_data.mean(), line_dash="dash", line_color="red",
+                x=float(hor_data.mean()), line_dash="dash", line_color="red",
                 annotation_text=f"Prom: {hor_data.mean():.0f}d",
                 annotation_position="top right",
             )
