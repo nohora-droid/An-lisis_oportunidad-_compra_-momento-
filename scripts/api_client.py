@@ -10,8 +10,13 @@ import os
 import json
 import time
 import warnings
-import requests
 import pandas as pd
+
+try:
+    import requests
+    _REQUESTS_OK = True
+except ImportError:
+    _REQUESTS_OK = False
 import numpy as np
 from pathlib import Path
 
@@ -63,6 +68,8 @@ def _get_api_key() -> str:
 # ── Verificar conectividad ────────────────────────────────────
 def api_disponible() -> bool:
     """True si la API interna de BIA es alcanzable."""
+    if not _REQUESTS_OK:
+        return False
     key = _get_api_key()
     if not key:
         return False
