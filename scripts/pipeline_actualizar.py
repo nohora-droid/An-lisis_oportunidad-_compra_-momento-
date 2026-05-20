@@ -1,9 +1,13 @@
 ﻿# =============================================================
 # pipeline_actualizar.py
 # Regenera ofertas_por_agente_detalle.csv y master_con_pb.csv
-# desde audiencias_master.xlsx + solicitado_master.xlsx + pb_historica_diaria.csv
+#
+# Fuente de ofertas (en orden de prioridad):
+#   1. API interna BIA  GET /v1/convocatorias  (si hay red BIA/VPN + API key)
+#   2. audiencias_master.xlsx  (descargado de Drive)
 #
 # Uso: python scripts/pipeline_actualizar.py
+#      python scripts/pipeline_actualizar.py --forzar-xlsx   (omite API)
 # =============================================================
 
 import sys
@@ -14,6 +18,8 @@ import numpy as np
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
+
+FORZAR_XLSX = "--forzar-xlsx" in sys.argv
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW  = ROOT / "data" / "raw"
@@ -44,12 +50,34 @@ def normalizar_fecha(col, dayfirst=True):
 print("=" * 60)
 print("Paso 1: Cargando archivos fuente...")
 
-aud_raw = pd.read_excel(RAW / "audiencias_master.xlsx", sheet_name=0, engine="openpyxl")
+# -- Intentar API primero, sino usar xlsx local ---
+USAR_API = False
+if not FORZAR_XLSX:
+    try:
+        from scripts.api_client import api_disponible, descargar_convocatorias, normalizar_respuesta
+        if api_disponible():
+            USAR_API = True
+            print("  [API] Red BIA detectada -> usando /v1/convocatorias")
+        else:
+            print("  [INFO] API no alcanzable (sin VPN/red BIA) -> usando xlsx local")
+    except Exception as e:
+        print(f"  [INFO] api_client no disponible ({e}) -> usando xlsx local")
+else:
+    print("  [INFO] Modo --forzar-xlsx activo")
+
+if USAR_API:
+    print("  Descargando convocatorias desde API...")
+    df_api = descargar_convocatorias(verbose=True)
+    df_api_norm = normalizar_respuesta(df_api)
+    # Guardar como xlsx para respaldo local
+    df_api.to_excel(RAW / "audiencias_master.xlsx", index=False, engine="openpyxl")
+    print(f"  Respaldo guardado en audiencias_master.xlsx")
+    aud_raw = df_api   # se usará en pasos siguientes
+else:
+    aud_raw = pd.read_excel(RAW / "audiencias_master.xlsx", sheet_name=0, engine="openpyxl")
+
 sol_raw = pd.read_excel(RAW / "solicitado_master.xlsx", sheet_name=0, engine="openpyxl")
-pb_raw  = pd.read_csv(
-    RAW / "pb_historica_diaria.csv",
-    encoding="utf-8-sig"
-)
+pb_raw  = pd.read_csv(RAW / "pb_historica_diaria.csv", encoding="utf-8-sig")
 
 print(f"  audiencias_master : {len(aud_raw):,} filas  x {len(aud_raw.columns)} cols")
 print(f"  solicitado_master : {len(sol_raw):,} filas  x {len(sol_raw.columns)} cols")

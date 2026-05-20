@@ -32,3 +32,10 @@ analisis:
   mes_indexacion_default: "2025-06"  # Mes base para indexar precios IPP
   ventanas_pb: [30, 60, 90]
   min_ofertas_agente: 3              # Mínimo de ofertas para incluir agente en análisis
+
+# API interna BIA (ms-olibia-pricing)
+# Requiere red interna BIA o VPN.
+# Configura el key en .env como BIA_API_KEY=tu_key  (NO lo pongas aquí)
+api:
+  base_url: "https://internal.bia.app/ms-olibia-pricing"
+  bia_key:  "TU_API_KEY_AQUI"   # <-- reemplaza aquí O usa el .env (recomendado)
